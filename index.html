@@ -96,9 +96,18 @@ main:focus{outline:none}
 
 /* ---------- Home ---------- */
 .hero{text-align:center;background:linear-gradient(180deg,var(--surface) 0%,var(--surface-2) 100%);border-top:4px solid var(--gold)}
-.team-photo{width:90%;margin:16px auto 0;position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--green-900)}
+.team-photo{width:100%;margin:0 0 14px;position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--green-900)}
+.team-photo .tp-open{display:block;width:100%;padding:0;margin:0;border:0;background:none;cursor:zoom-in;position:relative;color:inherit;font:inherit}
+.team-photo .tp-open:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.team-photo .tp-hint{position:absolute;right:10px;bottom:10px;background:rgba(11,61,42,.85);color:#fff;font-size:.78rem;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid var(--gold);pointer-events:none}
+.lightbox{position:fixed;inset:0;z-index:1000;background:rgba(6,20,14,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}
+.lightbox[hidden]{display:none}
+.lightbox img{max-width:100%;max-height:calc(100vh - 110px);width:auto;height:auto;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.5);cursor:zoom-out}
+.lb-close{margin-top:14px;min-height:44px;padding:0 22px;border-radius:999px;border:0;background:var(--gold);color:#1B1400;font:inherit;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.lb-close:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.lb-x{position:absolute;top:max(10px,env(safe-area-inset-top));right:12px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;font-size:1.4rem;line-height:1;cursor:pointer}
+body.lb-open{overflow:hidden}
 .team-photo img{display:block;width:100%;height:auto}
-@media(min-width:760px){.team-photo{max-width:576px;margin-left:auto;margin-right:auto}}
 .logo-wrap{background:#fff;border-radius:18px;display:inline-block;padding:10px;max-width:280px;width:72%}
 .logo-wrap img{display:block;width:100%}
 .hero h2{margin-top:.6em;color:var(--text)!important;font-size:1.35rem}
@@ -1279,7 +1288,9 @@ function renderHome() {
     return '<a class="tile' + (t[4] ? ' ' + t[4] : '') + '" href="#' + t[0] + '"><span class="ico" aria-hidden="true">' + t[1] + '</span><b>' + t[2] + '</b><span class="muted" style="font-size:.82rem">' + esc(sub) + '</span></a>';
   }).join('');
   patch(document.getElementById('homeTiles'), tiles);
-  patch(document.getElementById('homePhoto'), '<figure class="team-photo"><img src="' + TEAM_PHOTO_2026 + '" width="1024" height="647" alt="Gruppenfoto der AK30 Tour 2026" decoding="async"></figure>');
+  patch(document.getElementById('homePhoto'), '<figure class="team-photo"><button type="button" class="tp-open" data-lightbox="team" aria-label="Gruppenfoto der AK30 Tour 2026 groß anzeigen">' +
+    '<img src="' + TEAM_PHOTO_2026 + '" width="1024" height="647" alt="Gruppenfoto der AK30 Tour 2026" decoding="async">' +
+    '<span class="tp-hint" aria-hidden="true">🔍 Vergrößern</span></button></figure>');
   document.getElementById('countdown').__html = undefined;
   tick();
   renderHomeLive();   // Hook für Schritt 3
@@ -3014,6 +3025,38 @@ document.addEventListener('submit', function (ev) {
 document.addEventListener('keydown', function (ev) {
   if (ev.key === 'Escape' && draw.revealing) drawRevealClose();
 });
+
+/* ---------- Foto-Großansicht (Lightbox) ---------- */
+var lbLastFocus = null;
+function lbOpen() {
+  var lb = document.getElementById('lightbox'); if (!lb) return;
+  document.getElementById('lightboxImg').src = TEAM_PHOTO_2026;
+  lbLastFocus = document.activeElement;
+  lb.hidden = false; document.body.classList.add('lb-open');
+  var b = lb.querySelector('.lb-close'); if (b) b.focus();
+}
+function lbClose() {
+  var lb = document.getElementById('lightbox'); if (!lb || lb.hidden) return;
+  lb.hidden = true; document.body.classList.remove('lb-open');
+  if (lbLastFocus && lbLastFocus.focus) lbLastFocus.focus();
+}
+document.addEventListener('click', function (ev) {
+  var t = ev.target;
+  if (t.closest && t.closest('[data-lightbox]')) { ev.preventDefault(); lbOpen(); return; }
+  var lb = document.getElementById('lightbox');
+  if (lb && !lb.hidden && (t === lb || t.id === 'lightboxImg' || (t.closest && t.closest('[data-lb-close]')))) lbClose();
+});
+document.addEventListener('keydown', function (ev) {
+  var lb = document.getElementById('lightbox');
+  if (!lb || lb.hidden) return;
+  if (ev.key === 'Escape') { ev.preventDefault(); lbClose(); }
+  else if (ev.key === 'Tab') {   // Fokus innerhalb der Großansicht halten
+    var f = lb.querySelectorAll('button'), first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+});
+window.addEventListener('hashchange', lbClose);
 window.addEventListener('resize', function () { if (state.route === 'draw' && !draw.spinning) drawPaint(); });
 
 /* =====================================================================
@@ -3129,5 +3172,11 @@ function initTheme() {
   setInterval(function () { if (state.route === 'schedule' && !document.hidden) renderSchedule(); }, 60000);
 })();
 </script>
+<!-- Foto-Großansicht (Lightbox) -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Gruppenfoto – Großansicht" hidden>
+  <button type="button" class="lb-x" data-lb-close aria-label="Schließen">✕</button>
+  <img id="lightboxImg" src="" alt="Gruppenfoto der AK30 Tour 2026">
+  <button type="button" class="lb-close" data-lb-close><span aria-hidden="true">←</span> Zurück</button>
+</div>
 </body>
 </html>
