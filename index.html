@@ -356,13 +356,15 @@ table.costs tfoot td{font-weight:800;border-bottom:0;border-top:2px solid var(--
 .champ small{display:block;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;margin-top:6px}
 .champ .cname{display:block;font-size:2rem;font-weight:900;line-height:1.15;margin:6px 0;overflow-wrap:anywhere}
 .champ .cline{font-weight:700}
-.prev-champ{display:flex;align-items:center;gap:16px;border-radius:var(--radius);padding:16px;margin:0 0 14px;color:#1F3D14;background:linear-gradient(135deg,#FFE94D,#FFDE00 45%,#E8C200);border:3px solid #1F3D14;box-shadow:0 10px 28px rgba(31,61,20,.35)}
-.prev-champ img{width:110px;height:110px;flex:0 0 auto;object-fit:cover;border-radius:14px;border:3px solid #1F3D14;background:#fff}
-.prev-champ .pc-txt{min-width:0}
-.prev-champ small{display:block;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:.74rem}
-.prev-champ .cname{display:block;font-size:1.55rem;font-weight:900;line-height:1.15;margin:4px 0;overflow-wrap:anywhere}
-.prev-champ .cline{font-weight:700;font-size:.92rem;margin:0}
-@media(max-width:480px){.prev-champ{flex-direction:column;text-align:center}}
+.prev-champ{position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;border-radius:var(--radius);padding:18px;margin:0 0 14px;color:#fff;background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 30px,transparent 30px 60px),linear-gradient(135deg,var(--green-900),var(--green-700));border:1px solid var(--green-900);border-top:4px solid var(--gold);box-shadow:var(--shadow)}
+.prev-champ::after{content:"🏆";position:absolute;right:12px;top:-4px;font-size:5rem;opacity:.12;pointer-events:none;line-height:1.2}
+.prev-champ img{width:104px;height:104px;flex:0 0 auto;object-fit:cover;border-radius:50%;border:3px solid var(--gold);background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.prev-champ .pc-txt{min-width:0;position:relative;z-index:1}
+.prev-champ .pc-tag{display:inline-block;background:var(--gold);color:#1B1400;font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:.7rem;padding:3px 10px;border-radius:999px}
+.prev-champ .cname{display:block;font-size:1.5rem;font-weight:900;line-height:1.15;margin:8px 0 0;color:#fff;overflow-wrap:anywhere}
+.prev-champ .pc-nick{display:block;color:var(--gold);font-weight:700;font-size:.95rem;margin:2px 0 6px}
+.prev-champ .pc-story{margin:0;color:#D7E5DD;font-size:.9rem;line-height:1.45}
+@media(max-width:480px){.prev-champ{flex-direction:column;text-align:center}.prev-champ::after{display:none}}
 .champ.tie{background:linear-gradient(135deg,var(--gold-soft),var(--surface));color:var(--text);border-color:var(--gold)}
 .flights{display:grid;gap:10px;grid-template-columns:1fr}
 @media(min-width:560px){.flights{grid-template-columns:1fr 1fr}}
@@ -757,10 +759,9 @@ var RC_MODE = [
   { courseIdx: 1, part: 'Vormittag', title: 'Bestball (Four-Ball)', setup: '2 gegen 2', matches: 4, perFlight: 1,
     desc: 'Bestball: 2 gegen 2, der bessere Netto-Score pro Team zählt pro Loch.' },
   { courseIdx: 1, part: 'Nachmittag', title: 'Einzel-Matchplay (Singles)', setup: '1 gegen 1', matches: 8, perFlight: 2,
-    desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen können im Flight geregelt werden. Vorgaben innerhalb der Matches werden ebenfalls im Flight geregelt (Vorschlag: ¾ Vorgabe).',
-    note: 'Die Nachmittags-Startzeit ist vom Club noch nicht garantiert.' },
+    desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen können im Flight geregelt werden. Vorgaben innerhalb der Matches werden ebenfalls im Flight geregelt (Vorschlag: ¾ Vorgabe).' },
   { courseIdx: 2, part: '', title: 'Einzel-Matchplay (Singles)', setup: '1 gegen 1', matches: 8, perFlight: 2,
-    desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen werden in der Reihenfolge 1 bis 8 von den Captains am Samstagabend vergeben. Vorgaben innerhalb der Matches werden am Sonntag im Flight geregelt (Vorschlag: ¾ Vorgabe).' }
+    desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen werden in der Reihenfolge 1 bis 8 von den Captains am Samstagabend vergeben. Vorgaben innerhalb der Matches werden am Sonntag im Flight vor Abschlag Tee 1 geregelt.' }
 ];
 
 /* Logo als Base64 (560 px breit) – die Datei bleibt eigenständig */
@@ -1998,10 +1999,10 @@ function renderJDC() {
       '<span class="cline">Netto ' + esc(fmtNum(w.net)) + ' · Brutto ' + esc(fmtNum(w.gross, 0)) + ' · Platzvorgabe ' + esc(fmtHcp(w.ch)) + '</span></div>';
   } else if (c.done === 0) {
     // Titelverteidiger 2026 – wird ausgeblendet, sobald die ersten Scores für 2027 eingetragen sind
-    html += '<div class="prev-champ" role="note"><img src="' + JDC_CHAMP_2026_IMG + '" alt="Christian Wenner – John Deere Cup Champion 2026" width="110" height="110">' +
-      '<div class="pc-txt"><small>🏆 Titelverteidiger · John Deere Cup Champion 2026</small>' +
-      '<span class="cname">Christian Wenner</span><p class="cline">„Ferkel“</p>' +
-      '<p class="cline" style="font-weight:500;margin-top:4px">Gewann 2026 im Golfpark De Haverleij den Titel nach langem Stechen gegen Jord Daudeji.</p></div></div>';
+    html += '<div class="prev-champ" role="note"><img src="' + JDC_CHAMP_2026_IMG + '" alt="Christian Wenner – John Deere Cup Champion 2026" width="104" height="104">' +
+      '<div class="pc-txt"><span class="pc-tag">🏆 Titelverteidiger · Champion 2026</span>' +
+      '<span class="cname">Christian Wenner</span><span class="pc-nick">„Ferkel“</span>' +
+      '<p class="pc-story">Gewann 2026 im Golfpark De Haverleij den Titel nach langem Stechen gegen Jord Daudeji.</p></div></div>';
   } else if (c.tie) {
     html += '<div class="champ tie" role="status"><div class="trophy" aria-hidden="true">⚔️</div><small>Gleichstand an der Spitze</small>' +
       '<span class="cname" style="font-size:1.5rem">' + V('jdc.tie', namesList(c.leaders)) + '</span>' +
@@ -2203,7 +2204,9 @@ function rcModeHtml() {
       '<div class="kf"><b>' + V('rc.towin', fmtPts(toWin)) + '</b><small>Punkte zum Sieg</small></div>' +
     '</div><div class="formats">' + RC_MODE.map(function (r, i) {
       var c = courses[r.courseIdx];
-      var when = 'Runde ' + (i + 1) + (c && has(f(c, 'Day')) ? ' · ' + fmtDateLong(f(c, 'Day')) : '') + (r.part ? ' · ' + r.part : '');
+      var dp = c && has(f(c, 'Day')) ? parseDate(f(c, 'Day')) : null;
+      var wd = dp ? WD[new Date(dp.y, dp.m - 1, dp.d).getDay()] : '';
+      var when = 'Runde ' + (i + 1) + ((wd || r.part) ? ' · ' + [wd, r.part].filter(has).join(' ') : '');
       return '<div class="fmt"><p class="fmt-when">' + esc(when) + '</p><h3>' + esc(r.title) + '</h3>' +
         (c ? '<p class="muted" style="margin:0 0 2px;font-size:.9rem">📍 Platz ' + (r.courseIdx + 1) + ' · ' + esc(f(c, 'Name')) + '</p>' : '') +
         '<span class="fmt-pts">' + r.matches + ' Matches · ' + esc(r.setup) + (r.perFlight > 1 ? ' · ' + r.perFlight + ' pro Flight' : '') + ' · ' + r.matches + ' Punkte</span>' +
