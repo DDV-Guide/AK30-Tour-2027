@@ -120,6 +120,17 @@ body.lb-open{overflow:hidden}
 .cd-box b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums}
 .cd-box small{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:#D7E5DD}
 .cd-state{font-size:1.4rem;font-weight:700;color:var(--heading);margin:12px 0 4px}
+.wn{max-width:520px;margin:14px auto 4px;text-align:left;background:linear-gradient(135deg,var(--green-900),var(--green-700));color:#fff;border-radius:14px;padding:14px 16px;border-bottom:3px solid var(--gold);box-shadow:var(--shadow)}
+.wn-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.wn-tag{background:var(--gold);color:#1B1400;font-weight:800;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;padding:3px 10px;border-radius:999px}
+.wn-day{font-size:.8rem;color:#D7E5DD;font-weight:700}
+.wn-when{display:block;font-size:.85rem;color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums}
+.wn-what{display:block;font-size:1.2rem;font-weight:800;line-height:1.25;margin:2px 0;overflow-wrap:anywhere}
+.wn-where{margin:0;color:#D7E5DD;font-size:.9rem}
+.wn-now{margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,.18);font-size:.88rem;color:#EAF3EE}
+.wn-now b{color:#fff}
+.wn-link{display:inline-block;margin-top:10px;color:var(--gold);font-weight:700;font-size:.85rem;text-decoration:none}
+.wn-link:hover{text-decoration:underline}
 .tagline{font-style:italic;color:var(--gold-strong);margin:12px 0 0;font-weight:600}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
 @media(min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
@@ -1310,15 +1321,71 @@ function arrivalDate() {
   });
   return best || toLocalDate(s.StartDate);
 }
-/** Countdown / "Tag X der Reise" / "Reise beendet" – läuft jede Sekunde */
+/** Zeitpunkt (Datum + Uhrzeit) in deutscher Zeit (Europe/Berlin, MEZ/MESZ) – unabhängig von der Zeitzone des Geräts */
+function berlinTime(dateStr, hh, mm) {
+  var p = parseDate(dateStr); if (!p) return null;
+  var guess = Date.UTC(p.y, p.m - 1, p.d, hh, mm);
+  try {
+    var parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(guess));
+    var g = {}; parts.forEach(function (x) { g[x.type] = +x.value; });
+    var asBerlin = Date.UTC(g.year, g.month - 1, g.day, g.hour % 24, g.minute);
+    return new Date(guess - (asBerlin - guess));
+  } catch (e) { return new Date(p.y, p.m - 1, p.d, hh, mm); }
+}
+/** Ab hier ersetzt "What's Next" den Countdown: Anreisetag (StartDate), 06:00 Uhr deutscher Zeit */
+var WHATSNEXT_FROM = { hour: 6, minute: 0 };
+/** Aktueller und nächster Programmpunkt aus dem Schedule (gleiche Logik wie im Ablaufplan) */
+function scheduleNowNext(now) {
+  var timed = tab('Schedule').map(function (r, i) {
+    var t = timeOf(f(r, 'Time'));
+    return { r: r, i: i, t: t, day: isoKey(f(r, 'Date')), at: t ? toLocalDate(f(r, 'Date'), t) : null };
+  }).filter(function (x) { return x.at; });
+  timed.sort(function (a, b) { return (a.at - b.at) || a.i - b.i; });
+  var nowItem = null, nextItem = null;
+  for (var j = 0; j < timed.length; j++) {
+    var nx = timed[j + 1];
+    var endAt = nx && nx.day === timed[j].day ? nx.at : new Date(timed[j].at.getTime() + 2 * 3600000);
+    if (timed[j].at <= now && now < endAt) nowItem = timed[j];
+    if (timed[j].at > now) { nextItem = timed[j]; break; }
+  }
+  return { now: nowItem, next: nextItem };
+}
+/** "Heute" / "Morgen" / Wochentag */
+function relDay(d, now) {
+  var a = new Date(now.getFullYear(), now.getMonth(), now.getDate()), b = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  var diff = Math.round((b - a) / 86400000);
+  return diff === 0 ? 'Heute' : diff === 1 ? 'Morgen' : WD[d.getDay()];
+}
+/** Box "What's Next" für die Startseite (während der Reise) */
+function whatsNextHtml(now, dayNo) {
+  var nn = scheduleNowNext(now), x = nn.next, html = '<div class="wn" role="status">';
+  html += '<div class="wn-head"><span class="wn-tag">⏭ What’s Next</span>' + (dayNo ? '<span class="wn-day">Tag ' + dayNo + ' der Reise</span>' : '') + '</div>';
+  if (nn.now) html += '<p class="wn-now"><span aria-hidden="true">🟢 </span>Jetzt: <b>' + esc(f(nn.now.r, 'What')) + '</b>' +
+    (has(f(nn.now.r, 'Where')) ? ' · ' + esc(f(nn.now.r, 'Where')) : '') + '</p>';
+  if (x) {
+    var mins = Math.max(0, Math.round((x.at - now) / 60000)), rel;
+    if (mins < 60) rel = 'in ' + Math.max(1, mins) + ' Min';
+    else if (mins < 1440) rel = 'in ' + Math.floor(mins / 60) + ' Std' + (mins % 60 ? ' ' + (mins % 60) + ' Min' : '');
+    else rel = '';
+    html += '<span class="wn-when">' + esc(relDay(x.at, now) + ', ' + x.t + ' Uhr') + (rel ? ' · ' + esc(rel) : '') + '</span>' +
+      '<span class="wn-what">' + esc(f(x.r, 'What')) + '</span>' +
+      (has(f(x.r, 'Where')) ? '<p class="wn-where"><span aria-hidden="true">📍 </span>' + esc(f(x.r, 'Where')) + '</p>' : '');
+  } else {
+    html += '<span class="wn-what">Für heute steht nichts mehr an</span><p class="wn-where">Genießt den Abend! 🍻</p>';
+  }
+  return html + '<a class="wn-link" href="#schedule">Zum Ablaufplan →</a></div>';
+}
+/** Countdown (bis Anreisetag 06:00 Uhr) / "What's Next" während der Reise / "Reise beendet" – läuft jede Sekunde */
 function tick() {
   var el = document.getElementById('countdown');
   if (!el || state.route !== 'home') return;
   var s = settings(), now = new Date(), arr = arrivalDate();
   var start = toLocalDate(s.StartDate), end = toLocalDate(s.EndDate), html = '';
+  var wnFrom = start ? berlinTime(s.StartDate, WHATSNEXT_FROM.hour, WHATSNEXT_FROM.minute) : null;
+  if (wnFrom && arr && arr < wnFrom) wnFrom = arr;   // falls die Anreise schon vor 06:00 Uhr startet
   if (arr && start) {
-    if (now < arr) {
-      var diff = Math.floor((arr - now) / 1000);
+    if (now < wnFrom) {
+      var diff = Math.max(0, Math.floor((wnFrom - now) / 1000));   // läuft exakt bis Anreisetag 06:00 Uhr auf 0
       var parts = [[Math.floor(diff / 86400), 'Tage'], [Math.floor(diff % 86400 / 3600), 'Std'], [Math.floor(diff % 3600 / 60), 'Min'], [diff % 60, 'Sek']];
       html = '<p class="sr-only">Noch ' + parts[0][0] + ' Tage und ' + parts[1][0] + ' Stunden bis zur Anreise.</p>' +
         '<div class="countdown" aria-hidden="true">' + parts.map(function (p) {
@@ -1326,7 +1393,7 @@ function tick() {
         }).join('') + '</div><p class="muted" style="margin:0">bis zur Anreise</p>';
     } else if (end && now < new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1)) {
       var day = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - start) / 86400000) + 1;
-      html = '<p class="cd-state">Tag ' + Math.max(1, day) + ' der Reise</p>';
+      html = whatsNextHtml(now, Math.max(1, day));
     } else html = '<p class="cd-state">Reise beendet</p>';
   }
   if (el.__html !== html) { el.innerHTML = html; el.__html = html; }
