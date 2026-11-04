@@ -279,7 +279,19 @@ table.costs .cmt{display:block;font-size:.84rem;color:var(--muted);margin-top:2p
 table.costs tr.cancel td:not(:last-child){text-decoration:line-through;color:var(--muted)}
 table.costs tfoot td{font-weight:800;border-bottom:0;border-top:2px solid var(--border)}
 .est{color:var(--muted);font-style:italic}
+.room-empty{font-style:italic;color:var(--muted)}
+.room-empty-msg{margin:4px 0 0;font-size:1rem}
 @media(max-width:560px){table.costs.stack td.num{text-align:left}table.costs tfoot tr{border-bottom:0}}
+/* Desktop: identische Spaltenbreiten in allen Kategorien (Gesamt, p.P., Status exakt untereinander) */
+@media(min-width:561px){
+  table.costs{table-layout:fixed;width:100%}
+  table.costs col.c-tot{width:140px}
+  table.costs col.c-pp{width:130px}
+  table.costs col.c-st{width:190px}
+  table.costs td,table.costs th{overflow-wrap:anywhere}
+  table.costs th.num,table.costs td.num{padding-right:18px}
+  table.costs td[data-label="Status"],table.costs th:last-child{padding-left:14px}
+}
 
 /* ---------- Spieler ---------- */
 .plist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -1017,11 +1029,11 @@ var CONFIG = {
 /* Ryder-Cup-Spielmodus – hier zentral anpassbar.
    courseIdx = Position des Platzes in der Platzliste (0 = Platz 1 / JDC, 1 = Platz 2, 2 = Platz 3) */
 var RC_MODE = [
-  { courseIdx: 1, part: 'Vormittag', title: 'Bestball (Four-Ball)', setup: '2 gegen 2', matches: 4, perFlight: 1,
+  { courseIdx: 1, part: 'Vormittag', title: 'Bestball (Four-Ball)', setup: '2 vs 2', matches: 4, perFlight: 1,
     desc: 'Bestball: 2 gegen 2, der bessere Netto-Score pro Team zählt pro Loch.' },
-  { courseIdx: 1, part: 'Nachmittag', title: 'Einzel-Matchplay (Singles)', setup: '1 gegen 1', matches: 8, perFlight: 2,
+  { courseIdx: 1, part: 'Nachmittag', title: 'Einzel-Matchplay (Singles)', setup: '1 vs 1', matches: 8, perFlight: 2,
     desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen können im Flight geregelt werden. Vorgaben innerhalb der Matches werden ebenfalls im Flight geregelt (Vorschlag: ¾ Vorgabe).' },
-  { courseIdx: 2, part: '', title: 'Einzel-Matchplay (Singles)', setup: '1 gegen 1', matches: 8, perFlight: 2,
+  { courseIdx: 2, part: '', title: 'Einzel-Matchplay (Singles)', setup: '1 vs 1', matches: 8, perFlight: 2,
     desc: 'Zwei Einzel-Matches pro Flight im Single Match-Play. Die Konstellationen werden in der Reihenfolge 1 bis 8 von den Captains am Samstagabend vergeben. Vorgaben innerhalb der Matches werden am Sonntag im Flight vor Abschlag Tee 1 geregelt.' }
 ];
 
@@ -1710,7 +1722,7 @@ function renderCosts() {
     var ct = sum(act, 'total'), cp = sum(act, 'pp'), hid = 'h-cost-' + ci;
     html += '<section class="card" aria-labelledby="' + hid + '"><div class="cat-head"><h2 id="' + hid + '"><span aria-hidden="true">' + costIcon(cat) + '</span>' + esc(cat) + '</h2>' +
       '<span class="cat-sum">' + V('cost.c.' + hk(cat), fmtEur(ct)) + ' <small>· ' + esc(fmtEur(cp)) + ' p.P.</small></span></div>' +
-      '<div class="table-wrap"><table class="stack costs"><thead><tr><th scope="col">Kostenpunkt</th><th scope="col" class="num">Gesamt</th><th scope="col" class="num">p.P.</th><th scope="col">Status</th></tr></thead><tbody>' +
+      '<div class="table-wrap"><table class="stack costs"><colgroup><col class="c-item"><col class="c-tot"><col class="c-pp"><col class="c-st"></colgroup><thead><tr><th scope="col">Kostenpunkt</th><th scope="col" class="num">Gesamt</th><th scope="col" class="num">p.P.</th><th scope="col">Status</th></tr></thead><tbody>' +
       list.map(function (r) {
         var k = 'cost.' + hk(cat) + '.' + hk(r.item) + '.';
         return '<tr' + (r.state === 'cancelled' ? ' class="cancel"' : '') + '><td data-label="Kostenpunkt"><span><strong>' + esc(r.item) + '</strong>' + (r.comment ? '<span class="cmt">' + esc(r.comment) + '</span>' : '') + '</span></td>' +
@@ -1783,12 +1795,13 @@ function renderAccommodation() {
       '</article>';
   });
   out += '<section class="card" aria-labelledby="h-rooms"><h2 id="h-rooms">Zimmerverteilung</h2>';
-  if (!rooms.length) out += emptyState('Die Zimmerverteilung steht noch aus (Tab „Rooms“).');
+  var roomFilled = function (r) { var l = Array.isArray(r.PlayerList) ? r.PlayerList.filter(has) : []; return l.length || has(f(r, 'Players')); };
+  if (!rooms.length || !rooms.some(roomFilled)) out += '<p class="room-empty-msg"><em class="room-empty">Zimmerbelegungen bitte der Organisation mitteilen</em></p>';
   else {
-    out += '<div class="table-wrap"><table class="stack"><thead><tr><th scope="col">Zimmer</th><th scope="col">Belegung</th></tr></thead><tbody>' +
+    out += '<div class="table-wrap"><table class="stack rooms"><thead><tr><th scope="col">Zimmer</th><th scope="col">Belegung</th></tr></thead><tbody>' +
       rooms.map(function (r) {
         var list = Array.isArray(r.PlayerList) && r.PlayerList.length ? r.PlayerList.join(', ') : f(r, 'Players');
-        return '<tr><td data-label="Zimmer"><strong>' + esc(f(r, 'Room')) + '</strong></td><td data-label="Belegung">' + V('room.' + f(r, 'Room'), list || '–') + '</td></tr>';
+        return '<tr><td data-label="Zimmer"><strong>' + esc(f(r, 'Room')) + '</strong></td><td data-label="Belegung">' + (has(list) ? V('room.' + f(r, 'Room'), list) : '<em class="room-empty">Zimmerbelegungen bitte der Organisation mitteilen</em>') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   patch(el, out + '</section>');
@@ -2335,7 +2348,7 @@ function renderJDC() {
   html += '<section class="card jdc-hero" aria-labelledby="h-jdcintro"><span class="big-ico" aria-hidden="true">🚜</span>' +
     '<h2 id="h-jdcintro">Der legendäre John Deere Cup</h2>' +
     '<p>Bevor Green und White am Wochenende aufeinander losgelassen werden, wird am Freitag erstmal geklärt, wer es alleine kann. 18 Löcher, Einzelwertung, Netto. Wer am Ende ganz oben steht, bekommt Ruhm, Ehre und natürlich den John Deere Cup.</p>' +
-    '<p>Der Pokal bleibt ein Jahr. Die Geschichten über den Sieg vermutlich länger. Also Jungs: <strong>WD40 raus, den Winter zum Entrosten nutzen und let’s go!</strong></p>' +
+    '<p>Also Jungs: <strong>WD40 raus, den Winter zum Entrosten nutzen und let’s go!</strong></p>' +
     '<div class="jdc-meta">' + (cday ? '<span>📅 ' + esc(cday) + '</span>' : '') + '<span>⛳ ' + esc(cname) + '</span><span>⏱ Erster Abschlag ' + esc(tee) + ' Uhr</span>' +
       (par !== null ? '<span>Par ' + esc(fmtNum(par, 0)) + (cr !== null ? ' · CR ' + esc(fmtNum(cr)) : '') + (slope ? ' · Slope ' + esc(fmtNum(slope, 0)) : '') + '</span>' : '') + '</div></section>';
 
@@ -2531,7 +2544,7 @@ function rcModeHtml() {
       var when = 'Runde ' + (i + 1) + ((wd || r.part) ? ' · ' + [wd, r.part].filter(has).join(' ') : '');
       return '<div class="fmt"><p class="fmt-when">' + esc(when) + '</p><h3>' + esc(r.title) + '</h3>' +
         (c ? '<p class="muted" style="margin:0 0 2px;font-size:.9rem">📍 Platz ' + (r.courseIdx + 1) + ' · ' + esc(f(c, 'Name')) + '</p>' : '') +
-        '<span class="fmt-pts">' + r.matches + ' Matches · ' + esc(r.setup) + (r.perFlight > 1 ? ' · ' + r.perFlight + ' pro Flight' : '') + ' · ' + r.matches + ' Punkte</span>' +
+        '<span class="fmt-pts">' + r.matches + ' Matches je ' + esc(r.setup) + ' · ' + r.matches + ' Punkte</span>' +
         '<p>' + esc(r.desc) + '</p>' + (r.note ? '<p class="muted" style="font-size:.85rem">⚠️ ' + esc(r.note) + '</p>' : '') + '</div>';
     }).join('') + '</div>' +
     '<div class="rules-mini" style="grid-template-columns:1fr"><div><h3>Punkte</h3><ul>' +
