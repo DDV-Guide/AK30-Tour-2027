@@ -2718,12 +2718,13 @@ function drawCaptains() {
   if (!c.Team2) c.Team2 = s.Team2Captain || '';
   return c;
 }
-/** Alle Spieler ohne Absage: { name, hcp, nick, part } */
-function drawRoster() {
+/** Lostopf: nur Spieler mit Status "Bestätigt" (offene Zusagen und Absagen nehmen NICHT teil).
+ *  includeOpen = true: alle ohne Absage (nur für HCP-Anzeige, z. B. bei Kapitänen) */
+function drawRoster(includeOpen) {
   var out = [], seen = {};
   tab('Players').forEach(function (p) {
-    var n = String(f(p, 'Name') || '').trim(), k = normName(n);
-    if (!n || seen[k] || participation(p) === 'declined') return;
+    var n = String(f(p, 'Name') || '').trim(), k = normName(n), part = participation(p);
+    if (!n || seen[k] || part === 'declined' || (!includeOpen && part !== 'confirmed')) return;
     seen[k] = true;
     out.push({ name: n, hcp: toNum(f(p, 'Handicap')), nick: String(f(p, 'Nickname') || ''), part: participation(p) });
   });
@@ -2757,7 +2758,7 @@ function drawSegAt(angle, n) {
   return Math.min(n - 1, Math.floor(a / seg));
 }
 function drawHcpOf(name) {
-  var r = drawRoster().filter(function (x) { return normName(x.name) === normName(name); })[0];
+  var r = drawRoster(true).filter(function (x) { return normName(x.name) === normName(name); })[0];
   return r ? r.hcp : null;
 }
 
@@ -2852,11 +2853,12 @@ function drawRenderPool() {
   roster.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
   var pool = drawPool();
   var free = Math.max(0, size - (c.Team1 ? 1 : 0) - st.green.length) + Math.max(0, size - (c.Team2 ? 1 : 0) - st.white.length);
-  document.getElementById('drawPoolCount').textContent = pool.length + ' im Rad · ' + free + ' Plätze frei';
+  var openN = drawRoster(true).filter(function (r) { return r.part === 'open' && !t[normName(r.name)]; }).length;
+  document.getElementById('drawPoolCount').textContent = pool.length + ' im Rad · ' + free + ' Plätze frei' + (openN ? ' · ' + openN + ' mit offener Zusage nicht im Topf' : '');
   var hint = document.getElementById('drawPoolHint');
   hint.textContent = !free ? 'Alle Plätze sind vergeben.' :
-    pool.length > free ? 'Es sind mehr Namen im Topf als Plätze frei – Namen antippen, um sie aus dem Rad zu nehmen (z. B. noch offene Zusagen).' :
-    pool.length < free ? 'Achtung: weniger Namen im Topf als freie Plätze.' : 'Namen antippen, um sie aus dem Rad zu nehmen bzw. wieder hineinzulegen.';
+    pool.length > free ? 'Es sind mehr Namen im Topf als Plätze frei – Namen antippen, um sie aus dem Rad zu nehmen.' :
+    pool.length < free ? 'Achtung: weniger Namen im Topf als freie Plätze – nur bestätigte Spieler werden verlost.' : 'Namen antippen, um sie aus dem Rad zu nehmen bzw. wieder hineinzulegen.';
   el.innerHTML = roster.length ? roster.map(function (r) {
     var off = out[normName(r.name)];
     return '<button type="button" class="dp-chip' + (off ? ' off' : '') + (r.part === 'open' ? ' pend' : '') + '" data-draw="toggle" data-name="' + esc(r.name) + '" aria-pressed="' + (off ? 'false' : 'true') + '" title="' + (off ? 'Wieder in den Lostopf' : 'Aus dem Lostopf nehmen') + '">' +
@@ -2974,7 +2976,7 @@ function drawReveal(name, team) {
   document.getElementById('drNo').textContent = 'Ziehung #' + st.log.length;
   document.getElementById('drTeam').textContent = 'Team ' + ts.name;
   document.getElementById('drName').textContent = name;
-  var r = drawRoster().filter(function (x) { return normName(x.name) === normName(name); })[0];
+  var r = drawRoster(true).filter(function (x) { return normName(x.name) === normName(name); })[0];
   document.getElementById('drMeta').textContent = r ? [r.nick ? '„' + r.nick + '“' : '', r.hcp !== null ? 'HCP ' + fmtHcp(r.hcp) : ''].filter(Boolean).join(' · ') : '';
   o.hidden = false;
   void o.offsetWidth; o.classList.add('go');
