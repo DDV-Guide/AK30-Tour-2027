@@ -560,6 +560,25 @@ table.lbm tr.sep td{position:static;font-size:.66rem;text-transform:uppercase;le
 /* ---------- Unterkunft: dezenter Preis-Hinweis ---------- */
 .price-hint{margin:12px 0 0;font-size:.82rem;color:var(--muted);padding-left:10px;border-left:3px solid var(--border);line-height:1.45}
 .price-hint strong{color:var(--text)}
+/* ---------- Unterkunft: Parkhaus-Reiter ---------- */
+.park{padding:0;overflow:hidden;border-top:4px solid var(--gold)}
+.park summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 16px;min-height:56px}
+.park summary::-webkit-details-marker{display:none}
+.park summary:hover{background:var(--surface-2)}
+.park summary:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
+.park-ico{font-size:1.6rem;line-height:1;flex:none}
+.park-ttl{display:flex;flex-direction:column;min-width:0;flex:1}
+.park-ttl strong{color:var(--heading);font-size:1.05rem}
+.park-ttl small{color:var(--muted);font-size:.84rem;overflow-wrap:anywhere}
+.park-chev{flex:none;font-size:1.1rem;color:var(--muted);transition:transform .2s}
+.park[open] .park-chev{transform:rotate(180deg)}
+.park-body{padding:0 16px 16px;border-top:1px solid var(--border)}
+.park-body > .kv:first-child{margin-top:12px}
+.park-note{margin:8px 0 0;font-size:.82rem;color:var(--muted)}
+table.park-tbl td{vertical-align:top}
+table.park-tbl td.num,table.park-tbl th.num{text-align:right;font-variant-numeric:tabular-nums;width:38%}
+.park-list{margin:0;padding-left:1.1em}
+.park-list li{margin:.15em 0}
 
 /* ---------- Teamauslosung ---------- */
 .draw-gate{max-width:440px;margin:24px auto;text-align:center;border-top:4px solid var(--gold)}
@@ -1778,6 +1797,37 @@ function accInfoHtml(a, rooms) {
   return html;
 }
 function mapsSearch(addr) { return has(addr) ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) : ''; }
+/* Parkhaus-Empfehlung (Hotel-Seite) */
+var PARKING = {
+  name: 'Parkeergarage Stationsplein',
+  address: 'Colvenierstraat 20, 5211 AP &#39;s-Hertogenbosch, Niederlande',
+  walk: 'ca. 15 Gehminuten zum Hotel',
+  web: 'https://www.parkeren-denbosch.nl/parkeergarage-stationsplein',
+  maps: 'https://www.google.com/maps/place/Parkeergarage+Stationsplein/@51.6893851,5.2920098,776m/data=!3m2!1e3!4b1!4m6!3m5!1s0x47c6ee8af5eaf821:0xce12740326741aa2!8m2!3d51.6893818!4d5.2945847!16s%2Fg%2F11cjk4mtlg?entry=ttu&g_ep=EgoyMDI2MTEwMS4wIKXMDSoASAFQAw%3D%3D',
+  hours: [['Montag – Donnerstag', '05:00 – 02:00 Uhr'], ['Freitag', '05:00 – 03:00 Uhr'], ['Samstag', '06:00 – 03:00 Uhr'], ['Sonntag', '07:00 – 02:00 Uhr']],
+  hoursNote: 'Ausfahren ist rund um die Uhr (24/7) möglich.',
+  prices: [['Regulärer Tarif', '€ 3,20'], ['Maximaler Tagestarif', '€ 20,00']],
+  reduced: ['Abendtarif 18:00 – 02:00 Uhr', 'Shopping-Abend 21:00 – 02:00 Uhr', 'Nacht 02:00 – 07:00 Uhr', 'Sonntag 07:00 – 12:00 Uhr', 'Feiertage 07:00 – 12:00 Uhr'],
+  reducedPrice: '€ 1,50 pro Stunde, maximal € 7,50'
+};
+function parkingHtml() {
+  var P = PARKING;
+  return '<details class="card park" id="parking"><summary><span class="park-ico" aria-hidden="true">🅿️</span>' +
+      '<span class="park-ttl"><strong>Parkhaus-Empfehlung</strong><small>' + P.name + ' · ' + P.walk + '</small></span><span class="park-chev" aria-hidden="true">▾</span></summary>' +
+    '<div class="park-body">' +
+      '<dl class="kv"><dt>Parkhaus</dt><dd>' + P.name + '</dd><dt>Adresse</dt><dd>' + P.address + '</dd><dt>Fußweg</dt><dd>🚶 ' + P.walk + '</dd></dl>' +
+      '<h3 class="acc-sub">Öffnungszeiten</h3>' +
+      '<dl class="kv park-hours">' + P.hours.map(function (h) { return '<dt>' + h[0] + '</dt><dd>' + h[1] + '</dd>'; }).join('') + '</dl>' +
+      '<p class="park-note">' + P.hoursNote + '</p>' +
+      '<h3 class="acc-sub">Parktarife</h3>' +
+      '<div class="table-wrap"><table class="park-tbl"><thead><tr><th scope="col">Wann parken?</th><th scope="col" class="num">Tarif</th></tr></thead><tbody>' +
+        P.prices.map(function (p) { return '<tr><td>' + p[0] + '</td><td class="num">' + p[1] + '</td></tr>'; }).join('') +
+        '<tr><td><ul class="park-list">' + P.reduced.map(function (r) { return '<li>' + r + '</li>'; }).join('') + '</ul></td><td class="num">' + P.reducedPrice + '</td></tr>' +
+      '</tbody></table></div>' +
+      '<p class="park-note">Quelle: parkeren-denbosch.nl – Preise und Zeiten ohne Gewähr.</p>' +
+      '<div class="btnrow">' + extLink(P.maps, '📍 Google Maps', 'btn') + extLink(P.web, '🌐 Website', 'btn ghost') + '</div>' +
+    '</div></details>';
+}
 function renderAccommodation() {
   var el = document.getElementById('accContent'), nd = noDataState('Unterkunftsdaten');
   if (nd) return patch(el, nd);
@@ -1794,6 +1844,7 @@ function renderAccommodation() {
       '<div class="btnrow">' + extLink(f(a, 'MapsUrl') || mapsSearch(f(a, 'Address')), '📍 Google Maps', 'btn') + extLink(f(a, 'Website'), '🌐 Website', 'btn ghost') + '</div>' +
       '</article>';
   });
+  out += parkingHtml();
   out += '<section class="card" aria-labelledby="h-rooms"><h2 id="h-rooms">Zimmerverteilung</h2>';
   var roomFilled = function (r) { var l = Array.isArray(r.PlayerList) ? r.PlayerList.filter(has) : []; return l.length || has(f(r, 'Players')); };
   if (!rooms.length || !rooms.some(roomFilled)) out += '<p class="room-empty-msg"><em class="room-empty">Zimmerbelegungen bitte der Organisation mitteilen</em></p>';
