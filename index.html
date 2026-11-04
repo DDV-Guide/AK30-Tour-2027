@@ -149,6 +149,10 @@ body.lb-open{overflow:hidden}
 .team-head{background:var(--tc);color:var(--tt);padding:12px 16px;border-bottom:3px solid var(--gold)}
 .team-head.light{box-shadow:inset 0 0 0 1px #9AA39E}
 .team-head h2{margin:0;color:inherit!important}
+.team-title{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.team-avg{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45);color:inherit;font-weight:800;font-size:.9rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.team-avg.light{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.25)}
+.slot-pend{display:inline-block;margin:2px 0 0;padding:1px 7px;border-radius:999px;font-size:.7rem;font-weight:700;background:var(--gold-soft);color:var(--text);border:1px dashed var(--gold)}
 .team-head p{margin:0;font-size:.88rem}
 .team-body{padding:12px;display:grid;gap:10px}
 .capt{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#1B1400;font-size:.75rem;font-weight:800;margin-left:6px;vertical-align:middle}
@@ -566,7 +570,8 @@ table.lbm tr.sep td{position:static;font-size:.66rem;text-transform:uppercase;le
 @keyframes pulseT{50%{box-shadow:0 0 0 9px rgba(201,162,39,.08)}}
 .dn-done{font-weight:900;font-size:1.15rem;color:#FFE69A}
 .draw-next.celebrate .dn-done{animation:pop .8s cubic-bezier(.2,1.6,.4,1)}
-.wheel-wrap{position:relative;width:min(92vw,440px);aspect-ratio:1/1;margin:0 auto}
+.wheel-wrap{position:relative;width:100%;max-width:440px;aspect-ratio:1/1;margin:0 auto;box-sizing:border-box}
+@media(max-width:600px){.draw-stage{padding:16px 10px 14px}.wheel-wrap{width:92%;max-width:380px}.wheel-pointer{margin-left:-14px;border-left-width:14px;border-right-width:14px;border-top-width:30px}.wheel-pointer::after{left:-6px;top:-36px;width:12px;height:12px}}
 .wheel{width:100%;height:100%;display:block;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
 .wheel-glow{position:absolute;inset:6%;border-radius:50%;box-shadow:0 0 60px 10px rgba(255,222,0,.25);pointer-events:none}
 .draw-stage.spinning .wheel-glow{box-shadow:0 0 80px 18px rgba(255,222,0,.45)}
@@ -2555,6 +2560,7 @@ function rcTeamsHtml() {
       ? '<div class="slot captain"><span class="num" aria-hidden="true">C</span><div class="who"><strong>' + esc(capName) + '</strong><span class="cap-badge" style="margin:2px 0 0">© Kapitän</span></div>' +
         (capH !== null ? '<span class="shcp">HCP ' + esc(fmtHcp(capH)) + '</span>' : '') + '</div>'
       : '<div class="slot open"><span class="num">C</span><div class="who">Kapitän noch offen</div></div>';
+    var hcpList = (capH !== null ? [capH] : []).concat(members.map(function (p) { return toNum(f(p, 'Handicap')); }));
     members.forEach(function (p, i) {
       var h = toNum(f(p, 'Handicap'));
       slots += '<div class="slot filled"><span class="num">' + (i + 2) + '</span><div class="who"><strong>' + esc(f(p, 'Name')) + '</strong></div>' + (h !== null ? '<span class="shcp">HCP ' + esc(fmtHcp(h)) + '</span>' : '') + '</div>';
@@ -2563,7 +2569,7 @@ function rcTeamsHtml() {
       slots += '<div class="slot open"><span class="num" aria-hidden="true">' + n + '</span><div class="who">Slot ' + n + ' – wird ausgelost</div><span aria-hidden="true">🎲</span></div>';
     }
     return '<section class="team-col" style="--tc:' + ts.color + ';--tt:' + ts.text + '" aria-labelledby="h-rct-' + team + '">' +
-      '<div class="team-head' + (ts.light ? ' light' : '') + '"><h2 id="h-rct-' + team + '">Team ' + esc(ts.name) + '</h2>' +
+      '<div class="team-head' + (ts.light ? ' light' : '') + '"><div class="team-title"><h2 id="h-rct-' + team + '">Team ' + esc(ts.name) + '</h2>' + avgBadge(hcpList, ts.light) + '</div>' +
       '<div class="team-count"><span>' + V('rc.cnt.' + team, Math.min(filled, size) + ' / ' + size) + ' vergeben</span><span class="progress" aria-hidden="true"><span style="width:' + Math.min(100, filled / size * 100).toFixed(0) + '%"></span></span></div></div>' +
       '<div class="team-body">' + slots + '</div></section>';
   };
@@ -2860,8 +2866,9 @@ function renderHomeLive() {
  * TEAMAUSLOSUNG – Glücksrad (passwortgeschützt)
  * ---------------------------------------------------------------------
  * - Passwort wird nur als SHA-256-Hash geprüft (Klartext steht nicht im Code).
- * - Ergebnis wird lokal im Browser gespeichert (übersteht Neuladen),
- *   NICHT ins Google Sheet geschrieben – Übertrag erfolgt manuell.
+ * - Google Sheet = Single Source of Truth: Team-Zuordnungen (Players › Team) werden
+ *   immer übernommen; Ziehungs-Nr. und nächstes Team ergeben sich daraus.
+ * - Neue Ziehungen werden lokal gemerkt, bis sie im Sheet stehen (dann automatisch bereinigt).
  * - Gelost wird abwechselnd: Green, White, Green, …
  * ===================================================================== */
 var DRAW_CFG = {
@@ -2954,9 +2961,73 @@ function drawRoster(includeOpen) {
   });
   return out;
 }
+/** Team-Zuordnung aus dem Google Sheet (Master Data): Spieler mit Spalte „Team“ = Green/White, ohne Kapitäne.
+ *  Reihenfolge = Reihenfolge im Sheet. */
+function drawSheetTeams() {
+  var c = drawCaptains(), res = { Team1: [], Team2: [] }, seen = {};
+  [c.Team1, c.Team2].forEach(function (n) { if (n) seen[normName(n)] = true; });
+  tab('Players').forEach(function (p) {
+    var n = String(f(p, 'Name') || '').trim(), k = normName(n), tm = teamOf(p);
+    if (!n || seen[k] || !tm || captainOf(p)) return;
+    seen[k] = true;
+    res[tm].push(n);
+  });
+  return res;
+}
+/** Lokal gezogene Namen, die bereits im Sheet stehen, aus dem lokalen Speicher entfernen (Sheet gewinnt). */
+function drawSync() {
+  if (!state.data) return;
+  var st = drawSt(), sh = drawSheetTeams(), inSheet = {}, changed = false;
+  sh.Team1.concat(sh.Team2).forEach(function (n) { inSheet[normName(n)] = true; });
+  var c = drawCaptains(); [c.Team1, c.Team2].forEach(function (n) { if (n) inSheet[normName(n)] = true; });
+  ['green', 'white'].forEach(function (key) {
+    var before = st[key].length;
+    st[key] = st[key].filter(function (n) { return !inSheet[normName(n)]; });
+    if (st[key].length !== before) changed = true;
+  });
+  var before = st.log.length;
+  st.log = st.log.filter(function (e) { return e && !inSheet[normName(e.name)]; });
+  if (st.log.length !== before) changed = true;
+  if (changed) drawSave();
+}
+/** Aktuelle Teams = Sheet-Zuordnung + lokal gezogene, noch nicht ins Sheet übertragene Namen */
+function drawTeams() {
+  drawSync();
+  var st = drawSt(), sh = drawSheetTeams(), res = { Team1: [], Team2: [] }, seen = {};
+  var add = function (team, n, src) { var k = normName(n); if (!n || seen[k]) return; seen[k] = true; res[team].push({ name: n, src: src }); };
+  sh.Team1.forEach(function (n) { add('Team1', n, 'sheet'); });
+  sh.Team2.forEach(function (n) { add('Team2', n, 'sheet'); });
+  st.green.forEach(function (n) { add('Team1', n, 'local'); });
+  st.white.forEach(function (n) { add('Team2', n, 'local'); });
+  return res;
+}
+function drawNames(list) { return list.map(function (x) { return x.name; }); }
+/** Anzahl bereits erfolgter Ziehungen (ohne Kapitäne) */
+function drawDone() { var T = drawTeams(); return T.Team1.length + T.Team2.length; }
+/** Lokale (noch nicht im Sheet stehende) Ziehung, die zurückgenommen werden kann */
+function drawLastLocal() {
+  var st = drawSt();
+  for (var i = st.log.length - 1; i >= 0; i--) {
+    var e = st.log[i], arr = e.team === 'Team1' ? st.green : st.white;
+    if (arr.some(function (n) { return normName(n) === normName(e.name); })) return { entry: e, idx: i };
+  }
+  return null;
+}
+/** Durchschnitts-Handicap (Ø, 1 Nachkommastelle) aus einer Liste von HCP-Werten */
+function avgHcp(list) {
+  var v = list.map(toNum).filter(function (x) { return x !== null; });
+  if (!v.length) return '';
+  var a = v.reduce(function (s, x) { return s + x; }, 0) / v.length;
+  var txt = Math.abs(a).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return (a < 0 ? '+' : '') + txt;
+}
+function avgBadge(list, light) {
+  var a = avgHcp(list);
+  return a ? '<span class="team-avg' + (light ? ' light' : '') + '" title="Durchschnitts-Handicap des Teams (' + list.filter(function (x) { return toNum(x) !== null; }).length + ' Spieler)" aria-label="Durchschnitts-Handicap ' + esc(a) + '">Ø ' + esc(a) + '</span>' : '';
+}
 function drawTaken() {
-  var st = drawSt(), c = drawCaptains(), t = {};
-  [c.Team1, c.Team2].concat(st.green, st.white).forEach(function (n) { if (n) t[normName(n)] = true; });
+  var c = drawCaptains(), T = drawTeams(), t = {};
+  [c.Team1, c.Team2].concat(drawNames(T.Team1), drawNames(T.Team2)).forEach(function (n) { if (n) t[normName(n)] = true; });
   return t;
 }
 /** Namen, die (noch) im Rad sind */
@@ -2967,8 +3038,8 @@ function drawPool() {
 }
 /** Welches Team ist dran? Abwechselnd, Green beginnt. '' = beide voll */
 function drawNext() {
-  var st = drawSt(), c = drawCaptains(), size = drawTeamSize();
-  var g = (c.Team1 ? 1 : 0) + st.green.length, w = (c.Team2 ? 1 : 0) + st.white.length;
+  var T = drawTeams(), c = drawCaptains(), size = drawTeamSize();
+  var g = (c.Team1 ? 1 : 0) + T.Team1.length, w = (c.Team2 ? 1 : 0) + T.Team2.length;
   if (g >= size && w >= size) return '';
   if (g >= size) return 'Team2';
   if (w >= size) return 'Team1';
@@ -3020,7 +3091,7 @@ function renderDraw() {
       '<section class="card draw-pool-card" aria-labelledby="h-dpool"><div class="dp-head"><h2 id="h-dpool">Lostopf</h2><span id="drawPoolCount" class="chip gold"></span></div>' +
         '<p class="muted" id="drawPoolHint" style="font-size:.86rem;margin:0 0 10px"></p><div class="dp-chips" id="drawPool"></div></section>' +
       '<div class="draw-undo-wrap"><button type="button" class="dt dt-undo" data-draw="undo">↶ Letzte Ziehung zurück</button></div>' +
-      '<p class="muted" style="font-size:.8rem;text-align:center">Das Ergebnis wird nur in diesem Browser gespeichert und nicht ins Google Sheet übertragen. Nach der Auslosung „Teams kopieren“ und im Tab „Players“ die Spalte „Team“ befüllen.</p>' +
+      '<p class="muted" style="font-size:.8rem;text-align:center">Das Google Sheet ist die Master-Quelle: Bereits im Tab „Players“ (Spalte „Team“) zugeordnete Spieler werden automatisch übernommen – auf jedem Gerät. Neu gezogene Namen werden nur in diesem Browser gemerkt (Hinweis „noch nicht im Sheet“), bis sie im Sheet eingetragen sind.</p>' +
       '<div class="draw-reveal" id="drawReveal" hidden role="dialog" aria-modal="true" aria-labelledby="drName">' +
         '<canvas class="dr-confetti" aria-hidden="true"></canvas>' +
         '<div class="dr-card"><p class="dr-no" id="drNo"></p><p class="dr-pre">Gezogen für</p><p class="dr-team" id="drTeam"></p>' +
@@ -3039,31 +3110,34 @@ function drawRepaintSoon() {
 function drawRenderNext() {
   var el = document.getElementById('drawNext'); if (!el) return;
   var team = drawNext(), pool = drawPool(), btn = document.getElementById('drawSpinBtn');
-  var dis = !team || !pool.length;
+  var dis = !team || !pool.length, ub = document.querySelector('[data-draw="undo"]');
+  if (ub) ub.disabled = !drawLastLocal();
   if (btn) { btn.disabled = dis; btn.textContent = !team ? '🏁 Teams komplett' : !pool.length ? 'Lostopf leer' : '🎡 Rad drehen'; }
   if (!team) { el.innerHTML = '<span class="dn-done">🏁 Auslosung abgeschlossen – beide Teams sind komplett!</span>'; return; }
-  var ts = teamStyle(team), st = drawSt();
-  el.innerHTML = '<small>Ziehung #' + (st.log.length + 1) + ' · nächstes Los für</small>' +
+  var ts = teamStyle(team);
+  el.innerHTML = '<small>Ziehung #' + (drawDone() + 1) + ' · nächstes Los für</small>' +
     '<span class="dn-team" style="background:' + ts.color + ';color:' + ts.text + '">Team ' + esc(ts.name) + '</span>';
 }
 function drawRenderTeams() {
   var el = document.getElementById('drawTeams'); if (!el) return;
-  var st = drawSt(), c = drawCaptains(), size = drawTeamSize(), next = drawNext();
+  var T = drawTeams(), c = drawCaptains(), size = drawTeamSize(), next = drawNext();
   var col = function (team) {
-    var ts = teamStyle(team), list = team === 'Team1' ? st.green : st.white, cap = c[team];
+    var ts = teamStyle(team), list = T[team], cap = c[team];
+    var hcps = (cap ? [drawHcpOf(cap)] : []).concat(list.map(function (x) { return drawHcpOf(x.name); }));
     var slots = '';
     slots += cap ? '<div class="slot captain"><span class="num" aria-hidden="true">C</span><div class="who"><strong>' + esc(cap) + '</strong><span class="cap-badge" style="margin:2px 0 0">© Kapitän</span></div>' +
       (drawHcpOf(cap) !== null ? '<span class="shcp">HCP ' + esc(fmtHcp(drawHcpOf(cap))) + '</span>' : '') + '</div>'
       : '<div class="slot open"><span class="num">C</span><div class="who">Kapitän offen</div></div>';
-    list.forEach(function (n, i) {
-      var h = drawHcpOf(n), just = n === draw.lastAdded;
-      slots += '<div class="slot filled' + (just ? ' just' : '') + '"><span class="num">' + (i + 2) + '</span><div class="who"><strong>' + esc(n) + '</strong></div>' +
+    list.forEach(function (x, i) {
+      var n = x.name, h = drawHcpOf(n), just = n === draw.lastAdded;
+      slots += '<div class="slot filled' + (just ? ' just' : '') + '"><span class="num">' + (i + 2) + '</span><div class="who"><strong>' + esc(n) + '</strong>' +
+        (x.src === 'local' ? '<span class="slot-pend" title="Lokal gezogen – bitte im Google Sheet (Tab „Players“, Spalte „Team“) eintragen">noch nicht im Sheet</span>' : '') + '</div>' +
         (h !== null ? '<span class="shcp">HCP ' + esc(fmtHcp(h)) + '</span>' : '') + '</div>';
     });
     for (var k = list.length + 2; k <= size; k++) slots += '<div class="slot open"><span class="num" aria-hidden="true">' + k + '</span><div class="who">' + (k === list.length + 2 && next === team ? 'nächstes Los …' : 'offen') + '</div><span aria-hidden="true">🎲</span></div>';
     var filled = (cap ? 1 : 0) + list.length;
     return '<section class="team-col' + (next === team ? ' is-next' : '') + '" style="--tc:' + ts.color + ';--tt:' + ts.text + '" aria-labelledby="h-dt-' + team + '">' +
-      '<div class="team-head' + (ts.light ? ' light' : '') + '"><h2 id="h-dt-' + team + '">Team ' + esc(ts.name) + '</h2>' +
+      '<div class="team-head' + (ts.light ? ' light' : '') + '"><div class="team-title"><h2 id="h-dt-' + team + '">Team ' + esc(ts.name) + '</h2>' + avgBadge(hcps, ts.light) + '</div>' +
       '<div class="team-count"><span>' + Math.min(filled, size) + ' / ' + size + '</span><span class="progress" aria-hidden="true"><span style="width:' + Math.min(100, filled / size * 100).toFixed(0) + '%"></span></span></div></div>' +
       '<div class="team-body">' + slots + '</div></section>';
   };
@@ -3071,12 +3145,12 @@ function drawRenderTeams() {
 }
 function drawRenderPool() {
   var el = document.getElementById('drawPool'); if (!el) return;
-  var st = drawSt(), t = drawTaken(), out = {}, size = drawTeamSize(), c = drawCaptains();
+  var st = drawSt(), t = drawTaken(), out = {}, size = drawTeamSize(), c = drawCaptains(), T = drawTeams();
   st.out.forEach(function (n) { out[normName(n)] = true; });
   var roster = drawRoster().filter(function (r) { return !t[normName(r.name)]; });
   roster.sort(function (a, b) { return a.name.localeCompare(b.name, 'de'); });
   var pool = drawPool();
-  var free = Math.max(0, size - (c.Team1 ? 1 : 0) - st.green.length) + Math.max(0, size - (c.Team2 ? 1 : 0) - st.white.length);
+  var free = Math.max(0, size - (c.Team1 ? 1 : 0) - T.Team1.length) + Math.max(0, size - (c.Team2 ? 1 : 0) - T.Team2.length);
   var openN = drawRoster(true).filter(function (r) { return r.part === 'open' && !t[normName(r.name)]; }).length;
   document.getElementById('drawPoolCount').textContent = pool.length + ' im Rad · ' + free + ' Plätze frei' + (openN ? ' · ' + openN + ' mit offener Zusage nicht im Topf' : '');
   var hint = document.getElementById('drawPoolHint');
@@ -3133,6 +3207,7 @@ function drawPaint(pool, now) {
   }
   ctx.rotate(draw.angle);
   var fs = Math.max(R * 0.042, Math.min(R * 0.075, seg * rWheel * 0.5));
+  if (css < 480) fs = Math.max(R * 0.036, fs * 0.82);   // Mobil: Namen etwas kleiner
   for (var i = 0; i < n; i++) {
     var col = DRAW_COLORS[i % DRAW_COLORS.length];
     if (n > 1 && i === n - 1 && i % DRAW_COLORS.length === 0) col = DRAW_COLORS[2];
@@ -3197,7 +3272,7 @@ function drawReveal(name, team) {
   if (!o) { draw.revealing = false; renderDraw(); return; }
   o.style.setProperty('--rc', ts.color); o.style.setProperty('--rt', ts.text);
   o.className = 'draw-reveal ' + (ts.light ? 'light' : 'dark');
-  document.getElementById('drNo').textContent = 'Ziehung #' + st.log.length;
+  document.getElementById('drNo').textContent = 'Ziehung #' + drawDone();
   document.getElementById('drTeam').textContent = 'Team ' + ts.name;
   document.getElementById('drName').textContent = name;
   var r = drawRoster(true).filter(function (x) { return normName(x.name) === normName(name); })[0];
@@ -3251,7 +3326,8 @@ function drawConfettiFinal() {
   if (el) { el.classList.remove('celebrate'); void el.offsetWidth; el.classList.add('celebrate'); }
 }
 function drawTeamsText() {
-  var st = drawSt(), c = drawCaptains(), t1 = teamStyle('Team1'), t2 = teamStyle('Team2');
+  var T = drawTeams(), c = drawCaptains(), t1 = teamStyle('Team1'), t2 = teamStyle('Team2');
+  var st = { green: drawNames(T.Team1), white: drawNames(T.Team2) };
   var line = function (ts, cap, list) { return 'Team ' + ts.name + ': ' + [cap ? cap + ' (C)' : ''].concat(list).filter(Boolean).join(', '); };
   var rows = [];
   if (c.Team1) rows.push(c.Team1 + '\t' + t1.name); st.green.forEach(function (n) { rows.push(n + '\t' + t1.name); });
@@ -3290,15 +3366,16 @@ document.addEventListener('click', function (ev) {
     if (i >= 0) st.out.splice(i, 1); else st.out.push(n);
     drawSave(); renderDraw();
   } else if (act === 'undo') {
-    var last = st.log[st.log.length - 1];
-    if (!last) { announce('Noch keine Ziehung.'); return; }
+    var ll = drawLastLocal();
+    if (!ll) { window.alert(drawDone() ? 'Alle bisherigen Ziehungen stehen bereits im Google Sheet.\nÄnderungen bitte direkt im Sheet vornehmen (Tab „Players“, Spalte „Team“).' : 'Noch keine Ziehung.'); return; }
+    var last = ll.entry;
     if (!window.confirm('Letzte Ziehung zurücknehmen?\n' + last.name + ' → Team ' + teamStyle(last.team).name)) return;
-    st.log.pop();
+    st.log.splice(ll.idx, 1);
     var arr = last.team === 'Team1' ? st.green : st.white, p = arr.lastIndexOf(last.name);
     if (p >= 0) arr.splice(p, 1);
     draw.lastAdded = ''; drawSave(); renderDraw();
   } else if (act === 'reset') {
-    if (!window.confirm('Auslosung komplett zurücksetzen? Alle gezogenen Namen gehen zurück in den Lostopf.')) return;
+    if (!window.confirm('Lokale Ziehungen zurücksetzen?\nNur Namen, die noch NICHT im Google Sheet stehen, gehen zurück in den Lostopf. Zuordnungen aus dem Sheet bleiben erhalten.')) return;
     st.green = []; st.white = []; st.log = []; draw.lastAdded = ''; drawSave(); renderDraw();
   } else if (act === 'copy') drawCopy();
   else if (act === 'lock') {
