@@ -594,6 +594,9 @@ table.lbm tr.sep td{position:static;font-size:.66rem;text-transform:uppercase;le
 .slot.just{animation:landIn .9s cubic-bezier(.2,1.5,.4,1);border:2px solid var(--gold);background:var(--gold-soft)}
 @keyframes landIn{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
 .draw-pool-card{margin-top:14px}
+.draw-undo-wrap{display:flex;justify-content:center;margin:14px 0 6px}
+.dt.dt-undo{border-color:var(--green-700);background:transparent;color:var(--text)}
+.dt.dt-undo:hover:not(:disabled){background:var(--green-100)}
 .dp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .dp-head h2{margin:0}
 .dp-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -3008,7 +3011,6 @@ function renderDraw() {
           '<button type="button" class="wheel-hub" data-draw="spin" aria-label="Rad drehen"><span>DREH!</span></button></div>' +
         '<div class="draw-actions"><button type="button" class="draw-spin" id="drawSpinBtn" data-draw="spin">🎡 Rad drehen</button></div>' +
         '<div class="draw-tools">' +
-          '<button type="button" class="dt" data-draw="undo">↶ Letzte Ziehung zurück</button>' +
           '<button type="button" class="dt" data-draw="copy">📋 Teams kopieren</button>' +
           '<button type="button" class="dt" data-draw="reset">⟲ Neu starten</button>' +
           '<button type="button" class="dt" data-draw="lock">🔒 Sperren</button>' +
@@ -3017,6 +3019,7 @@ function renderDraw() {
       '<div class="teams draw-teams" id="drawTeams"></div>' +
       '<section class="card draw-pool-card" aria-labelledby="h-dpool"><div class="dp-head"><h2 id="h-dpool">Lostopf</h2><span id="drawPoolCount" class="chip gold"></span></div>' +
         '<p class="muted" id="drawPoolHint" style="font-size:.86rem;margin:0 0 10px"></p><div class="dp-chips" id="drawPool"></div></section>' +
+      '<div class="draw-undo-wrap"><button type="button" class="dt dt-undo" data-draw="undo">↶ Letzte Ziehung zurück</button></div>' +
       '<p class="muted" style="font-size:.8rem;text-align:center">Das Ergebnis wird nur in diesem Browser gespeichert und nicht ins Google Sheet übertragen. Nach der Auslosung „Teams kopieren“ und im Tab „Players“ die Spalte „Team“ befüllen.</p>' +
       '<div class="draw-reveal" id="drawReveal" hidden role="dialog" aria-modal="true" aria-labelledby="drName">' +
         '<canvas class="dr-confetti" aria-hidden="true"></canvas>' +
